@@ -6,3 +6,9 @@ batch-app/markers/*
 /.idea/
 .DS_Store
 **/.DS_Store
+modernization/output/**/*.class
+app/data/ASCII/VSAM/
+modernization/output/golden_master/cbact04c
+modernization/output/golden_master/CBACT04C.dylib
+modernization/output/golden_master/CBACT04C.so
+modernization/output/golden_master/vsam-loader

@@ -371,7 +371,7 @@ public class CBACT04C {
         try {
             for (String line : Files.readAllLines(Path.of(path))) {
                 String rec = line.stripTrailing();
-                if (rec.length() >= AccountRecord.OFF_GROUP_ID + 10) {
+                if (rec.length() >= 11) {
                     AccountRecord acct = parseAccountRecord(rec);
                     accountFileByAcctId.put(acct.acctId.trim(), acct);
                 }
@@ -580,7 +580,7 @@ public class CBACT04C {
                 tranAmt, merchantId, merchantName, merchantCity, merchantZip,
                 cardNum, ts, ts);
 
-        transactWriter.println(tranRecord); // WRITE FD-TRANFILE-REC FROM TRAN-RECORD
+        transactWriter.print(tranRecord); // WRITE FD-TRANFILE-REC FROM TRAN-RECORD
         if (transactWriter.checkError()) {
             abend("ERROR WRITING TRANSACTION RECORD");
         }
@@ -697,9 +697,9 @@ public class CBACT04C {
     /** CVTRA02Y.cpy: parse a 50-byte DIS-GROUP-RECORD line */
     private DisGroupRecord parseDisGroupRecord(String rec) {
         String groupId = substring(rec,  0, 10);  // DIS-ACCT-GROUP-ID  PIC X(10)
-        String typeCd  = substring(rec, 10, 12);  // DIS-TRAN-TYPE-CD   PIC X(02)
-        String catCd   = substring(rec, 12, 16);  // DIS-TRAN-CAT-CD    PIC 9(04)
-        String rateRaw = substring(rec, 16, 22);  // DIS-INT-RATE       PIC S9(04)V99 (6 bytes)
+        String typeCd  = substring(rec, 10,  2);  // DIS-TRAN-TYPE-CD   PIC X(02)
+        String catCd   = substring(rec, 12,  4);  // DIS-TRAN-CAT-CD    PIC 9(04)
+        String rateRaw = substring(rec, 16,  6);  // DIS-INT-RATE       PIC S9(04)V99 (6 bytes)
         return new DisGroupRecord(groupId, typeCd, catCd, parseSignedDisplay(rateRaw, 2));
     }
 
