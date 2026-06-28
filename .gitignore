@@ -8,6 +8,7 @@ batch-app/markers/*
 **/.DS_Store
 modernization/output/**/*.class
 app/data/ASCII/VSAM/
+app/data/ASCII/acctdata_output.txt
 modernization/output/golden_master/cbact04c
 modernization/output/golden_master/CBACT04C.dylib
 modernization/output/golden_master/CBACT04C.so
