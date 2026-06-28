@@ -1,4 +1,4 @@
-package modernization.output.claude;
+package modernization.app.batch;
 
 import java.io.*;
 import java.math.*;
@@ -6,6 +6,9 @@ import java.nio.file.*;
 import java.time.*;
 import java.time.format.*;
 import java.util.*;
+
+import modernization.app.common.batch.BatchAbortException;
+import modernization.app.common.time.Db2Timestamps;
 
 /**
  * Interest Calculation — batch job step INTCALC
@@ -200,7 +203,12 @@ public class CBACT04C {
         // The COBOL PARM is PIC X(10) — pad/truncate to exactly 10 chars.
         String rawParm = (args.length > 0 && !args[0].isBlank()) ? args[0] : "";
         String parmDate = String.format("%-10s", rawParm).substring(0, 10);
-        new CBACT04C(parmDate).run();
+        try {
+            new CBACT04C(parmDate).run();
+        } catch (BatchAbortException e) {
+            // 9999-ABEND-PROGRAM (CEE3ABD): map the abend code to a process exit.
+            System.exit(e.code());
+        }
     }
 
     public CBACT04C(String parmDate) {
@@ -574,7 +582,8 @@ public class CBACT04C {
         String cardNum = padRight(currentXref.cardNum(), 16); // CBACT04C.cbl L495
 
         // PERFORM Z-GET-DB2-FORMAT-TIMESTAMP → YYYY-MM-DD-HH.MM.SS.NN0000
-        String ts = getDb2FormatTimestamp(); // CBACT04C.cbl L496-498
+        // Externalised to common.time.Db2Timestamps (shared with CBTRN02C/CBEXPORT/COBIL00C).
+        String ts = Db2Timestamps.currentDb2Timestamp(); // CBACT04C.cbl L496-498
 
         String tranRecord = buildTranRecord(tranId, typeCd, catCd, source, desc,
                 tranAmt, merchantId, merchantName, merchantCity, merchantZip,
@@ -643,32 +652,14 @@ public class CBACT04C {
     }
 
     // -----------------------------------------------------------------------
-    // Z-GET-DB2-FORMAT-TIMESTAMP  (CBACT04C.cbl L613-626)
-    //
-    // Builds a DB2-format timestamp string: YYYY-MM-DD-HH.MM.SS.NN0000
-    // where NN = hundredths of seconds (COB-MIL PIC 9(002)).
-    // Total = 26 characters, matching PIC X(26) TRAN-ORIG-TS / TRAN-PROC-TS.
-    // -----------------------------------------------------------------------
-
-    private String getDb2FormatTimestamp() {
-        LocalDateTime now = LocalDateTime.now();
-        int hundredths = now.getNano() / 10_000_000; // truncate ns → hundredths
-        // Format: YYYY-MM-DD-HH.MM.SS.NN0000
-        return String.format("%04d-%02d-%02d-%02d.%02d.%02d.%02d0000",
-                now.getYear(), now.getMonthValue(), now.getDayOfMonth(),
-                now.getHour(), now.getMinute(), now.getSecond(),
-                hundredths);
-    }
-
-    // -----------------------------------------------------------------------
     // 9999-ABEND-PROGRAM  (CBACT04C.cbl L628-632)
-    // COBOL calls CEE3ABD to issue abend code 999.  Java throws RuntimeException.
+    // Externalised to common.batch.BatchAbortException (shared across all batch
+    // programs).  BatchAbortException.abort() reproduces the 'ABENDING PROGRAM'
+    // DISPLAY and carries abend code 999; main() maps it to System.exit.
     // -----------------------------------------------------------------------
 
     private void abend(String message) {
-        System.out.println("ABENDING PROGRAM");
-        System.out.println(message);
-        throw new RuntimeException("ABEND U0999: " + message);
+        throw BatchAbortException.abort(message);
     }
 
     // -----------------------------------------------------------------------
