@@ -1,5 +1,42 @@
 # Changelog
 
+## [Unreleased] — 2026-06-28 01:10 (test data enrichment)
+
+### Changed — Third GM/equivalence cycle (IBM-safe structured test data, PARM_DATE 2024-06-15)
+- `app/data/ASCII/discgrp.txt` restructured: 51 rows (3 groups × 17 type/cat rows) replaced
+  with 6 rows (5 named groups + DEFAULT, 1 row each for the only type/cat in the corpus —
+  type=01, cat=0001). Named groups: PRIME (3%), PREFERRED (9%), STANDARD (15%), NONPREF (21%),
+  SUBPRIME (27%), DEFAULT (15% fallback).
+- `app/data/ASCII/acctdata.txt`: ACCT-GROUP-ID (offset 112, len 10) populated for all 50
+  accounts; accounts 01–49 assigned to named groups (10 per PRIME/PREFERRED/STANDARD/NONPREF,
+  9 SUBPRIME); account 50 assigned non-existent group `ORPHAN    ` to intentionally exercise
+  the DEFAULT fallback path. ACCT-CURR-BAL updated to match TRAN-CAT-BAL per account.
+- `app/data/ASCII/tcatbal.txt`: TRAN-CAT-BAL updated to IBM-safe values — all balances are
+  exact multiples of $4.00 (400 cents), which yields zero-remainder division for all five
+  3%-multiple APR rates. Includes 5 negative-balance accounts (acc26, acc27, acc37, acc40,
+  acc47) and 1 zero-balance account (acc30) to exercise sign and zero edge cases.
+- `app/data/ASCII/custdata.txt`: FICO scores corrected to valid range 300–850 for all 50
+  customers; scores correlated with account rate group (PRIME tier: 740–850, PREFERRED: 670–
+  739, STANDARD: 580–669, NONPREF: 500–579, SUBPRIME: 300–499).
+
+### Proved — Third GM/equivalence cycle
+- GnuCOBOL GM and Java output: **50/50 full equivalence** after Veritas normalization
+  (timestamps masked, NUL→SPACE, overpunch sign-decode). With IBM-safe data, DR-001
+  (ROUNDING_ARTIFACT) does not manifest — all interest calculations produce exact
+  integer-cent results with no rounding needed.
+- Five distinct APR tiers exercised in one run: 3%, 9%, 15%, 21%, 27%. Interest values
+  range from $0.00 (zero balance) through $117.00 (acc49: $5200 at 27%). Negative-balance
+  accounts produce negative interest correctly in both COBOL and Java.
+- Exactly 1 "DISCLOSURE GROUP RECORD MISSING" console message per run (acc50/ORPHAN),
+  reduced from 50/run in the prior test corpus.
+
+### Fixed — Discrepancy Register
+- DR-001: Corrected IBM-safe threshold from "$0.80" to "$4.00" — the $0.80 figure was
+  correct only for 15% APR; the $4.00 minimum is required for the full 3%–27% rate range.
+- DR-005: Status updated from Deferred to Resolved; description updated to document the
+  restructured test data and the intentional single-fallback design.
+- Register Last Updated date: 2026-06-28.
+
 ## [Unreleased] — 2026-06-27 23:04 (continued)
 
 ### Added

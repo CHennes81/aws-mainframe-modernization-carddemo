@@ -50,7 +50,7 @@ echo "  COBC flags: ${COBC_FLAGS}"
 echo ""
 
 # --- Step 1: Compile VSAM-LOADER -------------------------------------------
-echo "[1/4] Compiling VSAM-LOADER..."
+echo "[1/5] Compiling VSAM-LOADER..."
 cobc -x ${COBC_FLAGS} \
      -o "${GM_DIR}/vsam-loader" \
      "${COBOL_SRC}/VSAM-LOADER.cbl"
@@ -59,14 +59,14 @@ echo "      -> ${GM_DIR}/vsam-loader"
 # --- Step 2: Compile CBACT04C as a dynamic module --------------------------
 # CBACT04C-DRIVER calls CBACT04C via COBOL CALL, so CBACT04C must be compiled
 # as a dynamically loadable module (.dylib on macOS, .so on Linux).
-echo "[2/4] Compiling CBACT04C (dynamic module)..."
+echo "[2/5] Compiling CBACT04C (dynamic module)..."
 cobc -m ${COBC_FLAGS} \
      -o "${GM_DIR}/CBACT04C" \
      "${COBOL_SRC}/CBACT04C.cbl"
 echo "      -> ${GM_DIR}/CBACT04C.dylib / .so"
 
 # --- Step 3: Compile CBACT04C-DRIVER as executable -------------------------
-echo "[3/4] Compiling CBACT04C-DRIVER (executable)..."
+echo "[3/5] Compiling CBACT04C-DRIVER (executable)..."
 cobc -x ${COBC_FLAGS} \
      -o "${GM_DIR}/cbact04c" \
      "${COBOL_SRC}/CBACT04C-DRIVER.cbl"
@@ -75,7 +75,7 @@ echo "      -> ${GM_DIR}/cbact04c"
 # --- Step 4: Load flat ASCII files into BDB indexed files ------------------
 # Remove stale indexed files first — VSAM-LOADER opens them with OUTPUT mode
 # but BDB may fail on corrupt/partial files from a prior interrupted run.
-echo "[4/4] Loading indexed files via VSAM-LOADER..."
+echo "[4/5] Loading indexed files via VSAM-LOADER..."
 rm -f "${VSAM_DIR}/tcatbal"   \
       "${VSAM_DIR}/cardxref"  \
       "${VSAM_DIR}/cardxref.1" \

@@ -3,7 +3,7 @@
 **Program:** CBACT04C (Interest Calculation — INTCALC batch)
 **Methodology:** Equivalence-First Migration
 **Author:** Christopher Hennes
-**Last updated:** 2026-06-27
+**Last updated:** 2026-06-28
 
 ---
 
@@ -97,7 +97,7 @@ against the algebraic formula for all 50 accounts, positive and negative balance
 | Option                                             | What it does                                                                                                                                                           | Likely effect                                                                  |
 | :------                                            | :------------                                                                                                                                                          | :--------------                                                                |
 | Add `-fsign=EBCDIC` to all compile commands        | Forces GnuCOBOL to use EBCDIC overpunch for DISPLAY sign bytes. Flag syntax: `-fsign=EBCDIC` (confirmed via `cobc --help` 3.2.0)                                       | Fixes sign loss on negative balances; applied in build scripts                 |
-| Use IBM-safe test data                             | Only include balances that are exact multiples of $0.80 — these produce integer-cent interest with no rounding needed (verified: $0.80 x 15.00 / 1200 = $0.01 exactly) | Eliminates rounding divergence without fixing the underlying GnuCOBOL behavior |
+| Use IBM-safe test data                             | Include balances that are exact multiples of $4.00 (400 cents) with rates that are multiples of 3% — these produce exact integer-cent interest with no rounding needed (verified: 400 × 300 / 120000 = 1 cent, 400 × 2700 / 120000 = 9 cents exactly). Note: $0.80 works only for 15% APR; $4.00 is required for the full 3%–27% rate range used in the enriched test corpus. | Eliminates rounding divergence in the test corpus without fixing the underlying GnuCOBOL behavior |
 | No arithmetic flag exists in GnuCOBOL 3.2 for this | `cobc --help` confirmed: `-farithmetic-osvs` reduces precision (OS/VS mode, wrong direction); `-fbinary-truncate` applies to COMP fields only; no DISPLAY arith flag   | No compiler switch can fix DISPLAY arithmetic rounding                         |
 | Capture GM on IBM Enterprise COBOL                 | Production mainframe run with same inputs                                                                                                                              | Authoritative oracle; resolves all arithmetic questions definitively           |
 
@@ -251,49 +251,56 @@ system depends on the last account's balance NOT being updated; (3) fix and re-v
 ### DR-005 — "DISCLOSURE GROUP RECORD MISSING" console messages (test data gap)
 
 **Classification:** `FIELD_NORM_GAP` (console output only — not in TRANSACT output)
-**Status:** Test data gap; not a translation defect; deferred
-**Affected program behavior:** All 50 accounts fall through to DEFAULT interest rate
-**Affected console output:** Both COBOL and Java; not in the output file
+**Status:** Resolved — test data restructured 2026-06-28; exactly 1 intentional fallback preserved
+**Affected program behavior:** Previously all 50 accounts; now exactly 1 account (acc50) falls through to DEFAULT
+**Affected console output:** Both COBOL and Java; not in the TRANSACT output file
 
 #### Description
 
-Every record in the current test corpus produces:
-```
-DISCLOSURE GROUP RECORD MISSING
-TRY WITH DEFAULT GROUP CODE
-```
+The DISPLAY statements at CBACT04C.cbl lines 418–419 fire inside `1200-GET-INTEREST-RATE`
+when a DISCGRP READ returns status 23 (record not found). This is normal COBOL behavior:
+when an account's specific group is absent from DISCGRP, the program gracefully falls back
+to the `DEFAULT   ` group.
 
-These are DISPLAY statements at CBACT04C.cbl lines 418–419, firing inside
-`1200-GET-INTEREST-RATE` when a DISCGRP READ returns status 23 (record not found).
-This is normal COBOL behavior: when an account's specific group is absent from DISCGRP,
-the program gracefully falls back to the 'DEFAULT   ' group.
+**Original root cause:** The 50 test accounts in `acctdata.txt` carried blank ACCT-GROUP-ID
+fields (`'          '`). No group ID matched anything in `discgrp.txt`, so all 50 accounts
+fired the fallback and computed interest at the DEFAULT rate (15%). The messages were
+diagnostic noise indicating a data gap, not a program error.
 
-**Root cause:** The 50 test accounts in `acctdata.txt` carry group IDs in the
-`Y000000000` range (e.g., `Y000000019`, `Y000000015`). These are valid-looking IDs
-but they do not exist as keys in `discgrp.txt`, which only contains:
+**Resolution (2026-06-28):** The test corpus was restructured as follows:
 
-| Group ID     | Type/Cat rows                                              |
-| :---------   | :-------------                                             |
-| `A000000000` | 17 rows (various type/cat combinations)                    |
-| `DEFAULT   ` | 17 rows — the fallback; rate = 15.00% for type=01/cat=0001 |
-| `ZEROAPR   ` | 17 rows — all rates = 0.00%                                |
+`discgrp.txt` was redesigned from 51 rows (3 groups × 17 type/cat combinations) to 6 rows
+(5 named groups + DEFAULT, each with exactly 1 row for the single type/cat combination
+present in `tcatbal.txt` — type=01, cat=0001):
 
-**Consequence for TRANSACT output:** None — the DEFAULT group lookup succeeds, and all
-accounts compute interest at 15.00% APR. The console messages are diagnostic noise, not
-errors.
+| Group ID     | APR    | Target FICO range | Notes                            |
+| :---------   | :----  | :---------------- | :------                          |
+| `PRIME     ` |  3.00% | 740–850           | Best rate; highest credit quality |
+| `PREFERRED ` |  9.00% | 670–739           |                                   |
+| `STANDARD  ` | 15.00% | 580–669           |                                   |
+| `NONPREF   ` | 21.00% | 500–579           |                                   |
+| `SUBPRIME  ` | 27.00% | 300–499           | Highest rate; lowest credit quality |
+| `DEFAULT   ` | 15.00% | fallback          | Used when group ID not found      |
 
-**To eliminate the messages (future test data improvement):** Update `acctdata.txt` to
-set ACCT-GROUP-ID (offset 11, length 10) to `A000000000` for accounts that should use
-the 'A' group rates, or to `DEFAULT   ` for accounts that should use default rates. This
-exercises the primary lookup path instead of the fallback path. No COBOL source change
-is required.
+`acctdata.txt` was updated to set ACCT-GROUP-ID (offset 112, len 10) for all 50 accounts:
+accounts 01–49 carry one of the five named group IDs; account 50 carries `ORPHAN    `
+which does not exist in `discgrp.txt`, intentionally triggering the fallback path exactly
+once. This preserves coverage of the DEFAULT fallback code path.
+
+`tcatbal.txt` balances and `custdata.txt` FICO scores were updated simultaneously (see
+DR-001 IBM-safe section). FICO scores were corrected to the valid 300–850 range and
+correlated with the account's interest rate group (higher FICO → lower rate).
+
+**Post-fix behavior:** Exactly 1 "DISCLOSURE GROUP RECORD MISSING" message fires per run
+(for acc50). All other 49 accounts resolve their group on the first lookup. The DEFAULT
+fallback path remains tested. No COBOL source was changed.
 
 #### Disposition
 
-Deferred. The current test corpus fully exercises the DEFAULT fallback path, which is a
-valid and important code path. The messages are informational only. A future test data
-enrichment pass should add DISCGRP-matched group IDs to validate the primary lookup
-path independently.
+Resolved. The primary DISCGRP lookup path is now exercised for 49 of 50 accounts. The
+DEFAULT fallback path is still exercised for account 50. Console messages reduced from
+50 to 1 per run. Full equivalence confirmed: 50/50 TRANSACT records match between
+GnuCOBOL GM and Java output after Veritas normalization (2026-06-28 test cycle).
 
 ---
 
@@ -301,11 +308,13 @@ path independently.
 
 | ID     | Field                           | Classification               | Java correct?                            | Status                                 |
 | :---   | :------                         | :--------------              | :-------------                           | :-------                               |
-| DR-001 | TRAN-AMT (value)                | `ROUNDING_ARTIFACT`          | ✓ Yes — GnuCOBOL diverges                | Open — awaits IBM validation           |
-| DR-002 | TRAN-DESC, FILLER (padding)     | `FIELD_NORM_GAP`             | ✓ Yes — Java uses SPACE (IBM behavior)   | Resolved by Veritas normalizer         |
-| DR-003 | TRAN-AMT (sign encoding)        | `FIELD_NORM_GAP`             | ✓ Equivalent — both decode to same value | Resolved by Veritas normalizer         |
-| DR-004 | ACCTFILE last-account update    | `LATENT_BUG`                 | ✓ Yes — Java replicates faithfully       | Deferred to post-migration remediation |
-| DR-005 | Console output / DISCGRP lookup | `FIELD_NORM_GAP` (test data) | N/A — not in TRANSACT output             | Deferred — test data enhancement       |
+| ID     | Field                           | Classification               | Java correct?                            | Status                                             |
+| :---   | :------                         | :--------------              | :-------------                           | :-------                                           |
+| DR-001 | TRAN-AMT (value)                | `ROUNDING_ARTIFACT`          | ✓ Yes — GnuCOBOL diverges                | Open — IBM-safe data masks it; IBM mainframe needed |
+| DR-002 | TRAN-DESC, FILLER (padding)     | `FIELD_NORM_GAP`             | ✓ Yes — Java uses SPACE (IBM behavior)   | Resolved by Veritas normalizer                     |
+| DR-003 | TRAN-AMT (sign encoding)        | `FIELD_NORM_GAP`             | ✓ Equivalent — both decode to same value | Resolved by Veritas normalizer                     |
+| DR-004 | ACCTFILE last-account update    | `LATENT_BUG`                 | ✓ Yes — Java replicates faithfully       | Deferred to post-migration remediation             |
+| DR-005 | Console output / DISCGRP lookup | `FIELD_NORM_GAP` (test data) | N/A — not in TRANSACT output             | Resolved — test data restructured 2026-06-28       |
 
 ---
 
@@ -317,7 +326,12 @@ Rules implemented or required in the Veritas comparator for CBACT04C:
 2. **NUL→SPACE**: replace 0x00 with 0x20 in all PIC X fields before comparison. (DR-002.)
 3. **TRAN-AMT sign-independent numeric decode**: decode both sides' TRAN-AMT to integer cent-value before comparing; handle GnuCOBOL plain digits, EBCDIC overpunch, and 0x70+n encoding. (DR-003.)
 
-After applying all three rules, the Java output matches the GnuCOBOL GM on all fields
-**except TRAN-AMT values**, where GnuCOBOL's arithmetic non-conformance (DR-001)
-produces systematically different results. Java is correct per IBM semantics on all
-diverging records.
+After applying all three rules and using IBM-safe test data (balances that are multiples
+of $4.00 with rates that are multiples of 3%), the Java output matches the GnuCOBOL GM
+**50/50 on all fields** — including TRAN-AMT values (2026-06-28 test cycle). The
+GnuCOBOL arithmetic non-conformance documented in DR-001 does not manifest when all
+interest calculations yield exact integer-cent results with no rounding required.
+
+When non-IBM-safe balances are used, DR-001 divergences reappear in TRAN-AMT. IBM-safe
+test data is a mitigation strategy, not a fix for the underlying GnuCOBOL behavior.
+Authoritative arithmetic proof requires an IBM Enterprise COBOL run.
