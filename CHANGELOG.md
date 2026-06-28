@@ -1,5 +1,45 @@
 # Changelog
 
+## [Unreleased] — 2026-06-27 23:04 (continued)
+
+### Added
+- app/data/ASCII/tcatbal.orig.txt, acctdata.orig.txt, discgrp.orig.txt — backup copies of
+  original flat data files before enrichment
+- Enriched test data: tcatbal (50 varied balances $50–$40,000, negative, $0, $0.01, $1.99),
+  acctdata (ACCT-CURR-CYC-CREDIT/DEBIT populated), discgrp (29 zero-rate rows filled 0.99%–29.99%,
+  one left at zero per design)
+
+### Proved — Second GM/equivalence cycle (enriched data, PARM_DATE 2024-06-15)
+- Java CBACT04C produces **50/50 correct** TRAN-AMT values per IBM Enterprise COBOL truncation
+  semantics (BigDecimal × 15.00 / 1200, RoundingMode.DOWN)
+- All non-TRAN-AMT, non-timestamp fields: **50/50 match** between Java and COBOL GM after
+  Veritas NUL→SPACE normalization (TRAN-ID, TRAN-TYPE-CD, TRAN-SOURCE, TRAN-DESC, merchant
+  fields, TRAN-CARD-NUM, FILLER)
+- TRAN-CARD-NUM verified end-to-end: xref lookup from account ID → card number correct for all
+  50 accounts
+
+### Fixed
+- Java CBACT04C parseTranCatBalRecord / parseCardXrefRecord: field-offset parameters were
+  passing END positions as LENGTH arguments to substring(start, length). Silent zero-return
+  on NumberFormatException masked the bug when balances were zero; exposed by enriched data.
+  Corrected lengths: typeCd=2, catCd=4, balRaw=11; custId=9, acctId=11.
+
+### Classified — Discrepancy Register entries
+- ROUNDING_ARTIFACT / GnuCOBOL_arithmetic_nonconformance: GnuCOBOL --std=ibm-strict does not
+  faithfully emulate IBM Enterprise COBOL arithmetic for COMPUTE on DISPLAY SIGN IS TRAILING
+  fields. GnuCOBOL: (a) rounds results instead of truncating (e.g. 0.625→0.63 vs IBM 0.62);
+  (b) loses sign for negative DISPLAY inputs (acc16–20, 26–30, 50 all produce positive output).
+  Result: 43/50 TRAN-AMT values differ between GnuCOBOL GM and Java. Java is CORRECT per IBM.
+  Action: authoritative equivalence proof requires IBM Enterprise COBOL, not GnuCOBOL.
+- FIELD_NORM_GAP / NUL_vs_SPACE: GnuCOBOL initializes working-storage to LOW-VALUES (0x00);
+  IBM COBOL initializes PIC X to SPACES. TRAN-DESC padding (offsets 56–131) and FILLER
+  (offsets 330–349) contain NUL in COBOL GM, SPACE in Java. Java is correct per IBM.
+  Veritas normalizer: treat 0x00 = 0x20 in all PIC X fields. No Java code change needed.
+- FIELD_NORM_GAP / TRAN_AMT_SIGN_ENCODING (pre-existing, now confirmed): GnuCOBOL emits
+  plain ASCII digits for positive TRAN-AMT (e.g. '3' = 0x33), Java emits EBCDIC overpunch
+  ('C' = 0x43 for digit 3). Both decode to the same integer value. Veritas normalizer: decode
+  both before comparing.
+
 ## [Unreleased] — 2026-06-27
 
 ### Added

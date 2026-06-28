@@ -671,17 +671,17 @@ public class CBACT04C {
     /** CVTRA01Y.cpy: parse a 50-byte TRAN-CAT-BAL-RECORD line */
     private TranCatBalRecord parseTranCatBalRecord(String rec) {
         String acctId  = substring(rec,  0, 11);  // TRANCAT-ACCT-ID  PIC 9(11)
-        String typeCd  = substring(rec, 11, 13);  // TRANCAT-TYPE-CD  PIC X(02)
-        String catCd   = substring(rec, 13, 17);  // TRANCAT-CD       PIC 9(04)
-        String balRaw  = substring(rec, 17, 28);  // TRAN-CAT-BAL     PIC S9(09)V99 (11 bytes)
+        String typeCd  = substring(rec, 11,  2);  // TRANCAT-TYPE-CD  PIC X(02)
+        String catCd   = substring(rec, 13,  4);  // TRANCAT-CD       PIC 9(04)
+        String balRaw  = substring(rec, 17, 11);  // TRAN-CAT-BAL     PIC S9(09)V99 (11 bytes)
         return new TranCatBalRecord(acctId, typeCd, catCd, parseSignedDisplay(balRaw, 2));
     }
 
     /** CVACT03Y.cpy: parse a 50-byte CARD-XREF-RECORD line */
     private CardXrefRecord parseCardXrefRecord(String rec) {
         String cardNum = substring(rec,  0, 16);  // XREF-CARD-NUM  PIC X(16)
-        String custId  = substring(rec, 16, 25);  // XREF-CUST-ID   PIC 9(09)
-        String acctId  = substring(rec, 25, 36);  // XREF-ACCT-ID   PIC 9(11)
+        String custId  = substring(rec, 16,  9);  // XREF-CUST-ID   PIC 9(09)
+        String acctId  = substring(rec, 25, 11);  // XREF-ACCT-ID   PIC 9(11)
         return new CardXrefRecord(cardNum, custId, acctId);
     }
 

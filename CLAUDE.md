@@ -103,7 +103,7 @@ The `.vscode/settings.json` configures the Broadcom COBOL Language Support exten
 What This Project Is
 
 This is a professional COBOL modernization demo project built by an experienced software architect
-(Sultan / Christopher Hennes) to demonstrate the Equivalence-First Migration methodology — a
+(Christopher Hennes) to demonstrate the Equivalence-First Migration methodology — a
 rigorous, safety-first approach to migrating legacy mainframe COBOL systems to modern Java.
 
 The codebase is the AWS CardDemo — a credit card / accounts-receivable application written in
@@ -291,6 +291,18 @@ Flag uncertainty explicitly — if a behavior is ambiguous, say so and offer opt
 Prioritize correctness over elegance — but flag inelegant translation decisions so they
 can be revisited in the refactoring pass
 Most-confronting issue first — lead with blockers and risks before explaining normal flow
+
+
+********************************
+ASSURANCES
+- When creating ASCII tables in MD documents, always make sure to pad teh tables with spaces so that they are nicely human readable and align vertically, espeically the pipe "|" characters that form vertical column separators.
+- Make sure to use my proper professional name anywhere & everywhere my name should appear in all documents
+
+********************************
+PROHIBITIONS
+- Never use my nickname anywhere in any files in this project.
+
+********************************
 
 
 Project: COBOL Veritas / CardDemo Migration Demo

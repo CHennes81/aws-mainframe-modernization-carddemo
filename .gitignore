@@ -6,7 +6,7 @@ batch-app/markers/*
 /.idea/
 .DS_Store
 **/.DS_Store
-modernization/output/**/*.class
+modernization/**/*.class
 app/data/ASCII/VSAM/
 app/data/ASCII/acctdata_output.txt
 modernization/output/golden_master/cbact04c
